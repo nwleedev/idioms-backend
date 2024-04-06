@@ -39,7 +39,8 @@ func main() {
 	}
 	awsId := os.Getenv("aws_access_key_id")
 	awsKey := os.Getenv("aws_secret_access_key")
-	awsConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-northeast-2"))
+	awsRegion := os.Getenv("region")
+	awsConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(awsRegion))
 	if err != nil {
 		panic(err)
 	}
