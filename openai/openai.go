@@ -113,8 +113,10 @@ func (openAi *OpenAi) TextCompletion(args *TextCompletionArgs) (*string, error) 
 
 func (openAi *OpenAi) Image(prompt string) (*string, error) {
 	url := "https://api.openai.com/v1/images/generations"
+	message := fmt.Sprintf("Here are the instructions you must follow. \n%s", prompt)
+
 	data := &ImageBody{
-		Prompt:         prompt,
+		Prompt:         message,
 		Model:          "dall-e-3",
 		Quality:        "hd",
 		ResponseFormat: "url",
