@@ -5,40 +5,40 @@ import (
 )
 
 type Idiom struct {
-	ID              string           `db:"id" json:"id"`
-	Idiom           string           `db:"idiom" json:"idiom"`
-	MeaningBrief    string           `db:"meaning_brief" json:"meaningBrief"`
-	MeaningFull     string           `db:"meaning_full" json:"meaningFull"`
-	CreatedAt       pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	Thumbnail       pgtype.Text      `db:"thumbnail" json:"thumbnail"`
-	ThumbnailPrompt pgtype.Text      `db:"thumbnail_prompt" json:"thumbnailPrompt"`
-	NumID           int64            `db:"num_id" json:"numId"`
-	Examples        []string         `json:"examples"`
+	ID           string           `db:"id" json:"id"`
+	Idiom        string           `db:"idiom" json:"idiom"`
+	MeaningBrief string           `db:"meaning_brief" json:"meaningBrief"`
+	MeaningFull  string           `db:"meaning_full" json:"meaningFull"`
+	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
+	Description  pgtype.Text      `db:"description" json:"description"`
+	NumID        int64            `db:"num_id" json:"numId"`
+	Examples     []string         `json:"examples"`
 }
 
 type IdiomDB struct {
-	ID              string           `db:"id" json:"id"`
-	Idiom           string           `db:"idiom" json:"idiom"`
-	MeaningBrief    string           `db:"meaning_brief" json:"meaningBrief"`
-	MeaningFull     string           `db:"meaning_full" json:"meaningFull"`
-	CreatedAt       pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	Thumbnail       pgtype.Text      `db:"thumbnail" json:"thumbnail"`
-	ThumbnailPrompt pgtype.Text      `db:"thumbnail_prompt" json:"thumbnailPrompt"`
-	NumID           int64            `db:"num_id" json:"numId"`
-	Expression      string           `json:"expression" db:"expression"`
+	ID           string           `db:"id" json:"id"`
+	Idiom        string           `db:"idiom" json:"idiom"`
+	MeaningBrief string           `db:"meaning_brief" json:"meaningBrief"`
+	MeaningFull  string           `db:"meaning_full" json:"meaningFull"`
+	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
+	Description  pgtype.Text      `db:"description" json:"description"`
+	NumID        int64            `db:"num_id" json:"numId"`
+	Expression   string           `json:"expression" db:"expression"`
 }
 
 func (res *IdiomDB) ToIdiom() *Idiom {
 	idiom := &Idiom{
-		ID:              res.ID,
-		Idiom:           res.Idiom,
-		MeaningBrief:    res.MeaningBrief,
-		MeaningFull:     res.MeaningFull,
-		CreatedAt:       res.CreatedAt,
-		Thumbnail:       res.Thumbnail,
-		ThumbnailPrompt: res.ThumbnailPrompt,
-		NumID:           res.NumID,
-		Examples:        []string{},
+		ID:           res.ID,
+		Idiom:        res.Idiom,
+		MeaningBrief: res.MeaningBrief,
+		MeaningFull:  res.MeaningFull,
+		CreatedAt:    res.CreatedAt,
+		Thumbnail:    res.Thumbnail,
+		Description:  res.Description,
+		NumID:        res.NumID,
+		Examples:     []string{},
 	}
 	return idiom
 }

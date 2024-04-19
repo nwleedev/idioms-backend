@@ -6,7 +6,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jmoiron/sqlx"
 	"github.com/nw.lee/idioms-backend/lib"
 	"github.com/nw.lee/idioms-backend/logger"
@@ -34,6 +33,7 @@ func NewIdiomTask(db *sqlx.DB, logger logger.LoggerService, ai openai.OpenAiInte
 
 func (task *Task) CreateIdiomMeanings(interval time.Duration) {
 	inputs := []models.IdiomInput{}
+	idioms := []models.Idiom{}
 	query, args, err := sq.Select("*").From("idiom_inputs").OrderBy("created_at asc").Limit(1).PlaceholderFormat(sq.Dollar).ToSql()
 	_ = args
 	if err != nil {
@@ -53,12 +53,57 @@ func (task *Task) CreateIdiomMeanings(interval time.Duration) {
 		return
 	}
 	input := inputs[0]
+
+	deleteQuery, deleteArgs, _ := sq.Delete("idiom_inputs").Where("id = ?", input.ID).PlaceholderFormat(sq.Dollar).ToSql()
+	_, err = task.db.Exec(deleteQuery, deleteArgs...)
+
+	if err != nil {
+		task.logger.Println("Failed to delete idiom input with idiom id %s", input.ID)
+		task.logger.PrintError("", err)
+		return
+	}
+
+	idiomQuery, args, _ := sq.Select("*").From("idioms").Where("id = ?", input.ID).Limit(1).PlaceholderFormat(sq.Dollar).ToSql()
+	err = task.db.Select(&idioms, idiomQuery, args...)
+	if err != nil {
+		task.logger.PrintError("Failed to query idioms with inputs", err)
+		return
+	}
+	if len(idioms) > 0 {
+		task.logger.Println("Idiom exists with id %s", input.ID)
+		deleteQuery, deleteArgs, _ := sq.Delete("idiom_inputs").Where("id = ?", input.ID).PlaceholderFormat(sq.Dollar).ToSql()
+		_, err = task.db.Exec(deleteQuery, deleteArgs...)
+
+		if err != nil {
+			task.logger.Println("Failed to delete idiom input with idiom id %s", input.ID)
+			task.logger.PrintError("", err)
+			return
+		}
+		return
+	}
 	textArgs := new(openai.TextCompletionArgs)
-	textArgs.AddMessage("system", "You are the famous English teacher, You are good at teaching English to countries in which people does Korean, Japanese instead of English.")
-	textArgs.AddMessage("system", "Your answer should be long and natural as soon as we can use these expressions in real world. Brief meaning should satisfy from 100 to 120 characters. Full meaning should be long as you as possible. Each expression should be longer than 400 characters.")
-	textArgs.AddMessage("system", fmt.Sprintf("The idiom is %s. The meaning of this idiom is %s. Make ten expressions with this please.", input.Idiom, input.Meaning))
-	textArgs.AddMessage("system", "Each expressions should be longer than 500 characters.")
-	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": string, \"meaningBrief\": string, \"meaningFull\": string, \"examples\": [string]}")
+	textArgs.AddMessage("system", "You are the famous English teacher")
+	textArgs.AddMessage("system", "You are good at teaching English to countries in which people does not use English as a main language.")
+	textArgs.AddMessage("system", "You have every knowledges to teach English to people.")
+	textArgs.AddMessage("system", "Your missions are three tasks.")
+	textArgs.AddMessage("system", "- Create a brief meaning")
+	textArgs.AddMessage("system", "- Create a full meaning")
+	textArgs.AddMessage("system", "- Create example sentences")
+	textArgs.AddMessage("system", "- Create a description explaining a situation with this idiom.")
+	textArgs.AddMessage("system", "Each your answers should be long and natural.")
+	textArgs.AddMessage("system", "Your answer should be much more ORIGINAL content than others on the internet.")
+	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
+	textArgs.AddMessage("system", "Brief meaning should satisfy from 120 to 140 letters.")
+	textArgs.AddMessage("system", "Full meaning should satisfy about 1000 letters.")
+	textArgs.AddMessage("system", "Each examples should be longer than 500 letters.")
+	textArgs.AddMessage("system", "Description should be about 500 letters.")
+	textArgs.AddMessage("system", "Description should not include abstract situations.")
+	textArgs.AddMessage("system", "Description should include specific situations.")
+	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": string, \"meaningBrief\": string, \"meaningFull\": string, \"description\": string, \"examples\": [string]}")
+
+	textArgs.AddMessage("assistant", fmt.Sprintf("The idiom is %s. The meaning of this idiom is %s.", input.Idiom, input.Meaning))
+
+	textArgs.AddMessage("user", "Create me a brief meaning, a full meaning, a description and example sentences with following data.")
 
 	textArgs.Model = "gpt-4"
 	textArgs.Temperature = 0.8
@@ -80,44 +125,12 @@ func (task *Task) CreateIdiomMeanings(interval time.Duration) {
 	idiomID := lib.ToIdiomID(idiom.Idiom)
 	idiom.ID = idiomID
 
-	promptArgs := new(openai.TextCompletionArgs)
-	promptArgs.Model = "gpt-4"
-	promptArgs.Temperature = 0.8
-
-	promptArgs.AddMessage("system", "You are a image generation prompt engineer. You are telanted for writing prompt of image generation ai.")
-	promptArgs.AddMessage("system", "You have knowledges of how to write prompt for multi image generation with ai services, such as Dall-E, Bing Ai, Stable diffusion.")
-	promptArgs.AddMessage("system", "Your mission is building prompts for me. I want to make thumbnails for vocabulary applications. Each card in this app should show thumbnail related to following idioms.")
-	promptArgs.AddMessage("system", "You should give me the prompt of Stable diffusion. Prompt should be 70 ~ 80 characters. Prompt should not include letters or alphabets.")
-	promptArgs.AddMessage("system", "Each thumbnails should show their correct meanings")
-	promptArgs.AddMessage("system", "The prompt shouldn't be abstract.")
-	promptArgs.AddMessage("system", "Response format should be {\"idiom\": string, \"prompt\": string}")
-	promptArgs.AddMessage("system", fmt.Sprintf("Idiom is %s, Meaning is %s.", input.Idiom, input.Meaning))
-
-	promptContent, err := task.ai.TextCompletion(promptArgs)
-	if err != nil {
-		task.logger.Println("Failed to query a thumbnail prompt from db with id %s", idiom.ID)
-		task.logger.PrintError("", err)
-		return
-	}
-	prompt := new(models.IdiomPrompt)
-	err = json.Unmarshal([]byte(*promptContent), prompt)
-	if err != nil {
-		task.logger.Println("Failed to decode prompt response", promptContent)
-		task.logger.PrintError("", err)
-		return
-	}
-
-	idiom.ThumbnailPrompt = pgtype.Text{
-		Valid:  true,
-		String: prompt.Prompt,
-	}
-
-	if !idiom.ThumbnailPrompt.Valid || idiom.Examples == nil || len(idiom.Examples) == 0 {
+	if !idiom.Description.Valid || idiom.Examples == nil || len(idiom.Examples) == 0 {
 		task.logger.Println("Failed to create a thumbnail prompt and examples by id %s", idiom.ID)
 		return
 	}
 
-	insertQuery, insertArgs, err := sq.Insert("idioms").Columns("id", "idiom", "meaning_brief", "meaning_full", "thumbnail_prompt").Values(idiom.ID, idiom.Idiom, idiom.MeaningBrief, idiom.MeaningFull, idiom.ThumbnailPrompt).PlaceholderFormat(sq.Dollar).ToSql()
+	insertQuery, insertArgs, err := sq.Insert("idioms").Columns("id", "idiom", "meaning_brief", "meaning_full", "description").Values(idiom.ID, idiom.Idiom, idiom.MeaningBrief, idiom.MeaningFull, idiom.Description).PlaceholderFormat(sq.Dollar).ToSql()
 	_, err = task.db.Exec(insertQuery, insertArgs...)
 	if err != nil {
 		task.logger.Println("Failed to insert idiom with id %s", idiom.ID)
@@ -132,15 +145,6 @@ func (task *Task) CreateIdiomMeanings(interval time.Duration) {
 	_, err = task.db.Exec(exampleSql, exampleArgs...)
 	if err != nil {
 		task.logger.Println("Failed to insert idiom example with idiom id %s", idiom.ID)
-		task.logger.PrintError("", err)
-		return
-	}
-
-	deleteQuery, deleteArgs, _ := sq.Delete("idiom_inputs").Where("id = ?", idiom.ID).PlaceholderFormat(sq.Dollar).ToSql()
-	_, err = task.db.Exec(deleteQuery, deleteArgs...)
-
-	if err != nil {
-		task.logger.Println("Failed to delete idiom input with idiom id %s", idiom.ID)
 		task.logger.PrintError("", err)
 		return
 	}
