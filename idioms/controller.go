@@ -33,6 +33,7 @@ type IdiomController interface {
 	CreateThumbnailByURL(writer http.ResponseWriter, request *http.Request)
 	UpdateThumbnailPrompt(writer http.ResponseWriter, request *http.Request)
 	CreateIdiomInputs(writer http.ResponseWriter, request *http.Request)
+	CreateDescription(writer http.ResponseWriter, request *http.Request)
 }
 
 func NewController(idiomService IdiomService, thumbnailService thumbnail.ThumbnailService, logger logger.LoggerService) *Controller {
@@ -331,6 +332,25 @@ func (controller *Controller) UploadThumbnail(writer http.ResponseWriter, reques
 	}
 
 	message["thumbnail"] = thumbnail
+	str, _ := json.Marshal(message)
+	writer.Write(str)
+}
+
+func (controller *Controller) CreateDescription(writer http.ResponseWriter, request *http.Request) {
+	message := map[string]interface{}{
+		"id":          nil,
+		"description": nil,
+	}
+	idiomId := chi.URLParam(request, "id")
+	description, err := controller.idiomService.CreateDescription(idiomId)
+	if err != nil {
+		message["idiomId"] = idiomId
+		str, _ := json.Marshal(message)
+		writer.Write(str)
+		return
+	}
+	message["id"] = idiomId
+	message["description"] = description.Description
 	str, _ := json.Marshal(message)
 	writer.Write(str)
 }

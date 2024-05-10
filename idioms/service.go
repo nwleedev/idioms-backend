@@ -196,3 +196,164 @@ func (service *Service) CreateIdiomInputs(inputs []models.IdiomInput) (*int, err
 	rows := int(affected)
 	return &rows, nil
 }
+
+func (service *Service) CreateDescription(id string) (*models.IdiomDescription, error) {
+	idioms := []models.Idiom{}
+	idiomsQuery, args, err := sq.Select("*").From("idioms").Where("id = ?", id).Limit(1).PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		service.logger.Error(err, "Failed to create a query", id)
+		return nil, err
+	}
+	err = service.db.Select(&idioms, idiomsQuery, args...)
+	if err != nil || len(idioms) == 0 {
+		service.logger.Warn("Failed to query the idiom", id)
+		return nil, err
+	}
+	idiom := idioms[0]
+	textArgs := new(openai.TextCompletionArgs)
+	textArgs.AddMessage("system", "You are the famous English teacher.")
+	textArgs.AddMessage("system", "You are good at teaching English to countries in which people does not use English as a main language.")
+	textArgs.AddMessage("system", "You have every knowledges to teach English to people.")
+	textArgs.AddMessage("system", "Your missions are one task.")
+	textArgs.AddMessage("system", "- Create a description explaining a situation with this idiom.")
+	textArgs.AddMessage("system", "Your answer should be long and natural.")
+	textArgs.AddMessage("system", "Your answer should be much more ORIGINAL content than others on the internet.")
+	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
+	textArgs.AddMessage("system", "Description should be longer than 300 letters.")
+	textArgs.AddMessage("system", "Description should be shorted than 400 letters.")
+	textArgs.AddMessage("system", "Description should not include abstract situations.")
+	textArgs.AddMessage("system", "Description should include specific situations.")
+	textArgs.AddMessage("system", "Response should be json format to {\"description\": string}")
+
+	information := map[string]string{}
+	information["idiom"] = idiom.Idiom
+	information["meaning"] = idiom.MeaningBrief
+	formatted, _ := json.Marshal(information)
+
+	textArgs.AddMessage("assistant", fmt.Sprintf("The Idiom is here.\n%s\n", formatted))
+
+	textArgs.AddMessage("user", "Create me a description suitable for explaining the situation with this idiom.")
+
+	textArgs.Model = "gpt-4-turbo-preview"
+	textArgs.Temperature = 0.8
+
+	content, textError := service.ai.TextCompletion(textArgs)
+	if textError != nil {
+		service.logger.Error(textError, "Failed to create examples.", idiom.ID)
+		return nil, textError
+	}
+	description := new(models.IdiomDescription)
+	jsonError := json.Unmarshal([]byte(*content), description)
+	if jsonError != nil {
+		service.logger.Error(jsonError, "Failed to decode JSON.")
+		return nil, jsonError
+	}
+	now := time.Now().UTC()
+	publishedAt := now.Format(time.RFC3339Nano)
+	updateQuery, args, err := sq.Update("idioms").Set("description", description.Description).Set("published_at", publishedAt).Where("id = ?", id).PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		service.logger.Error(err, "Failed to update idiom", args...)
+		return nil, err
+	}
+	_, err = service.db.Exec(updateQuery, args...)
+	if err != nil {
+		service.logger.Error(err, "Failed to update description with id", id)
+		return nil, err
+	}
+	description.ID = id
+	return description, nil
+}
+
+func (service *Service) CreateExamples(input models.IdiomInput) (*models.Idiom, error) {
+	idioms := []models.Idiom{}
+
+	idiomQuery, args, _ := sq.Select("*").From("idioms").Where("id = ?", input.ID).Limit(1).PlaceholderFormat(sq.Dollar).ToSql()
+	queryError := service.db.Select(&idioms, idiomQuery, args...)
+	if queryError != nil {
+		service.logger.Error(queryError, "Failed to query idioms with inputs")
+		return nil, queryError
+	}
+	if len(idioms) > 0 {
+		service.logger.Warn("Failed to query idioms with input")
+		return nil, errors.New("failed to query idioms with input")
+	}
+
+	textArgs := new(openai.TextCompletionArgs)
+	textArgs.AddMessage("system", "You are the famous English teacher")
+	textArgs.AddMessage("system", "You are good at teaching English to countries in which people does not use English as a main language.")
+	textArgs.AddMessage("system", "You have every knowledges to teach English to people.")
+	textArgs.AddMessage("system", "Your missions are four tasks.")
+	textArgs.AddMessage("system", "- Create a brief meaning")
+	textArgs.AddMessage("system", "- Create a full meaning")
+	textArgs.AddMessage("system", "- Create example sentences")
+	textArgs.AddMessage("system", "- Create a description explaining a situation with this idiom.")
+	textArgs.AddMessage("system", "Each your answer should be long and natural.")
+	textArgs.AddMessage("system", "Your answer should be much more ORIGINAL content than others on the internet.")
+	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
+	textArgs.AddMessage("system", "The brief meaning should be longer than 120 letters.")
+	textArgs.AddMessage("system", "The brief meaning should be shorter than 150 letters.")
+	textArgs.AddMessage("system", "The full meaning should be longer than 1000 letters.")
+	textArgs.AddMessage("system", "The full meaning should be shorter than 1100 letters.")
+	textArgs.AddMessage("system", "You should create 10 example sentences.")
+	textArgs.AddMessage("system", "Example sentences should be about 250 letters each sentence.")
+	textArgs.AddMessage("system", "Example sentences should be more specific.")
+	textArgs.AddMessage("system", "Example sentences should be less abstract.")
+	textArgs.AddMessage("system", "Description should be longer than 300 letters.")
+	textArgs.AddMessage("system", "Description should be shorted than 400 letters.")
+	textArgs.AddMessage("system", "Description should not include abstract situations.")
+	textArgs.AddMessage("system", "Description should include specific situations.")
+	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": string, \"meaningBrief\": string, \"meaningFull\": string, \"description\": string, \"examples\": [string]}")
+
+	information := map[string]string{}
+	information["idiom"] = input.Idiom
+	information["meaning"] = input.Meaning
+	formatted, _ := json.Marshal(information)
+
+	textArgs.AddMessage("assistant", fmt.Sprintf("The Idiom is here.\n%s\n", formatted))
+
+	textArgs.AddMessage("user", "Create me a brief meaning, a full meaning, a description and 10 example sentences.")
+
+	textArgs.Model = "gpt-4-turbo-preview"
+	textArgs.Temperature = 0.8
+
+	content, textError := service.ai.TextCompletion(textArgs)
+	if textError != nil {
+		service.logger.Error(textError, "Failed to create examples with ", input.Idiom)
+		return nil, errors.New("failed to create examples")
+	}
+	idiom := new(models.Idiom)
+
+	jsonError := json.Unmarshal([]byte(*content), idiom)
+	if jsonError != nil {
+		service.logger.Error(jsonError, "Failed to decode JSON.")
+		return nil, jsonError
+	}
+	idiomID := lib.ToIdiomID(idiom.Idiom)
+	idiom.ID = idiomID
+
+	if !idiom.Description.Valid || idiom.Examples == nil || len(idiom.Examples) == 0 {
+		service.logger.Warn("Failed to create a description and examples by id", idiom.ID)
+		return nil, errors.New("failed to create examples")
+	}
+
+	insertQuery, insertArgs, _ := sq.Insert("idioms").Columns("id", "idiom", "meaning_brief", "meaning_full", "description").Values(idiom.ID, idiom.Idiom, idiom.MeaningBrief, idiom.MeaningFull, idiom.Description).PlaceholderFormat(sq.Dollar).ToSql()
+	_, insertError := service.db.Exec(insertQuery, insertArgs...)
+	if insertError != nil {
+		service.logger.Error(insertError, "Failed to insert idiom to database", idiom)
+
+		return nil, insertError
+	}
+
+	exampleQuery := sq.Insert("idiom_examples").Columns("idiom_id", "expression")
+	for _, example := range idiom.Examples {
+		exampleQuery = exampleQuery.Values(idiom.ID, example)
+	}
+	exampleSql, exampleArgs, _ := exampleQuery.PlaceholderFormat(sq.Dollar).ToSql()
+	_, exampleError := service.db.Exec(exampleSql, exampleArgs...)
+	if exampleError != nil {
+		service.logger.Error(exampleError, "Failed to insert idiom examples", idiom)
+
+		return nil, exampleError
+	}
+	return idiom, nil
+}

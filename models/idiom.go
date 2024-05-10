@@ -75,3 +75,8 @@ type IdiomImageInput struct {
 type IdiomPrompt struct {
 	Prompt string `json:"prompt"`
 }
+
+type IdiomDescription struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+}
