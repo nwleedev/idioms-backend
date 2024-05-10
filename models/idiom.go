@@ -46,14 +46,14 @@ func (res *IdiomDB) ToIdiom() *Idiom {
 	return idiom
 }
 
-type PageCursor struct {
+type CursorToken struct {
 	Next     string `json:"next"`
 	Previous string `json:"previous"`
 }
 
 type IdiomResponse struct {
-	Idioms []Idiom    `json:"idioms"`
-	Cursor PageCursor `json:"cursor"`
+	Idioms []Idiom     `json:"idioms"`
+	Cursor CursorToken `json:"cursor"`
 }
 
 type IdiomThumbnailBody struct {
