@@ -44,42 +44,63 @@ func NewController(idiomService IdiomService, thumbnailService thumbnail.Thumbna
 	return controller
 }
 
-func (contoller *Controller) EncodeToken(idioms []models.Idiom, filter *QueryFilter, hasPrevous bool) (string, error) {
+func (contoller *Controller) EncodeToken(idioms []models.Idiom, filter *QueryFilter) (*models.CursorToken, error) {
 	if len(idioms) < 1 {
-		return "", nil
+		return nil, errors.New("failed to query idioms")
 	}
-	var idiom models.Idiom
-	if hasPrevous {
-		idiom = idioms[0]
-	} else {
-		idiom = idioms[len(idioms)-1]
-	}
+	fromIdiom := idioms[0]
+	toIdiom := idioms[len(idioms)-1]
 
-	cursor := new(Cursor)
+	prevCursor := new(Cursor)
+	nextCursor := new(Cursor)
 	if filter.OrderBy == "idiom" {
-		cursor.Idiom = &(idiom.Idiom)
+		prevCursor.Idiom = &(fromIdiom.Idiom)
+		nextCursor.Idiom = &(toIdiom.Idiom)
 	} else {
-		cursor.CreatedAt = &(idiom.CreatedAt)
+		prevCursor.CreatedAt = &(fromIdiom.CreatedAt)
+		nextCursor.CreatedAt = &(toIdiom.CreatedAt)
 	}
+	nextCursor.IsNext = true
+	prevCursor.IsNext = false
 
-	nextToken, err := json.Marshal(cursor)
+	prevToken, prevError := json.Marshal(prevCursor)
+	nextToken, nextError := json.Marshal(nextCursor)
+	if prevError != nil || nextError != nil {
+		contoller.logger.Error(errors.New("failed to create cursors"), "2 Errors", prevError, nextError)
+		return nil, errors.New("failed to create cursors")
+	}
+	encodedPrevToken := base64.StdEncoding.EncodeToString([]byte(prevToken))
 	encodedNextToken := base64.StdEncoding.EncodeToString([]byte(nextToken))
-	return encodedNextToken, err
+	return &models.CursorToken{
+		Previous: encodedPrevToken,
+		Next:     encodedNextToken,
+	}, nil
 }
 
-func (controller *Controller) DecodeToken(request *http.Request, hasPrevious bool) *Cursor {
+func (controller *Controller) DecodeToken(request *http.Request) *Cursor {
 	var encodedToken string
-	var tokenName string = "nextToken"
-	if hasPrevious {
-		tokenName = "previousToken"
+	params := request.URL.Query()
+	encodedNextToken := params.Get("nextToken")
+	encodedPrevToken := params.Get("prevToken")
+	cursor := new(Cursor)
+
+	if len(encodedPrevToken) == 0 && len(encodedNextToken) == 0 {
+		return nil
 	}
 
-	params := request.URL.Query()
-	encodedToken = params.Get(tokenName)
-	cursor := new(Cursor)
-	token, _ := base64.StdEncoding.DecodeString(encodedToken)
-	err := json.Unmarshal(token, cursor)
+	if len(encodedPrevToken) > 0 {
+		encodedToken = encodedPrevToken
+	} else {
+		encodedToken = encodedNextToken
+	}
+	token, err := base64.StdEncoding.DecodeString(encodedToken)
 	if err != nil {
+		controller.logger.Error(err, "failed to decode tokens.", encodedToken)
+		return nil
+	}
+	err = json.Unmarshal(token, cursor)
+	if err != nil {
+		controller.logger.Error(err, "failed to decode JSON.", encodedToken)
 		return nil
 	}
 	return cursor
@@ -88,43 +109,60 @@ func (controller *Controller) DecodeToken(request *http.Request, hasPrevious boo
 func (controller *Controller) GetFilter(request *http.Request) (*QueryFilter, error) {
 	params := request.URL.Query()
 	filter := new(QueryFilter)
-	orderBy := strings.ToLower(params.Get("orderBy"))
+	orderBy := (params.Get("orderBy"))
 	orderDirection := strings.ToLower(params.Get(("orderDirection")))
 	count, intErr := strconv.Atoi(params.Get(("count")))
 	if intErr != nil {
-		count = 10
+		count = 20
 	}
+	filter.Count = count
+	cursor := controller.DecodeToken(request)
 	operator := "<"
-	cursor := new(Cursor)
-	previousCursor := controller.DecodeToken(request, true)
-	nextCursor := controller.DecodeToken(request, false)
-	hasPrevious := false
-	if nextCursor != nil {
-		cursor = nextCursor
-	}
-	if previousCursor != nil {
-		cursor = previousCursor
-		hasPrevious = true
-	}
+	innerOrderDirection := "desc"
 
-	if orderBy != "idiom" && orderBy != "created_at" {
-		orderBy = "created_at"
-	}
-	if orderDirection != "desc" && orderDirection != "asc" {
-		if hasPrevious {
-			orderDirection = "asc"
-		} else {
-			orderDirection = "desc"
+	switch orderBy {
+	case "createdAt":
+		{
+			filter.OrderBy = "created_at"
+			break
+		}
+	case "idiom":
+		{
+			filter.OrderBy = "idiom"
+			break
+		}
+	default:
+		{
+			filter.OrderBy = "published_at"
 		}
 	}
-	if orderDirection == "asc" {
-		operator = ">"
+
+	if orderDirection != "asc" {
+		orderDirection = "desc"
 	}
-	filter.OrderBy = orderBy
 	filter.OrderDirection = orderDirection
-	filter.Count = count
+	if cursor != nil {
+		filter.idiom = cursor.Idiom
+		filter.createdAt = cursor.CreatedAt
+		if filter.OrderDirection == "desc" && cursor.IsNext {
+			innerOrderDirection = "desc"
+			operator = "<"
+		}
+		if filter.OrderDirection == "desc" && !cursor.IsNext {
+			innerOrderDirection = "asc"
+			operator = ">"
+		}
+		if filter.OrderDirection == "asc" && cursor.IsNext {
+			innerOrderDirection = "asc"
+			operator = ">"
+		}
+		if filter.OrderDirection == "asc" && !cursor.IsNext {
+			innerOrderDirection = "desc"
+			operator = "<"
+		}
+	}
+	filter.innerOrderDirection = innerOrderDirection
 	filter.operator = operator
-	filter.cursor = cursor
 
 	return filter, nil
 }
