@@ -79,8 +79,7 @@ func (openAi *OpenAi) TextCompletion(args *TextCompletionArgs) (*string, error) 
 
 	buf, err := json.Marshal(args)
 	if err != nil {
-		openAi.logger.Println("Invalid arguments")
-		openAi.logger.PrintError("", err)
+		openAi.logger.Error(err, "Invalid arguments.")
 		return nil, err
 	}
 	body := bytes.NewBuffer(buf)
@@ -94,8 +93,7 @@ func (openAi *OpenAi) TextCompletion(args *TextCompletionArgs) (*string, error) 
 	resp, err := client.Do(req)
 
 	if err != nil {
-		openAi.logger.Println("Failed to execute text completion")
-		openAi.logger.PrintError("", err)
+		openAi.logger.Error(err, "Failed to run text completion.")
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -103,8 +101,7 @@ func (openAi *OpenAi) TextCompletion(args *TextCompletionArgs) (*string, error) 
 	response := new(TextCompletionResponse)
 	err = json.NewDecoder(resp.Body).Decode(response)
 	if err != nil || len(response.Choices) == 0 {
-		openAi.logger.Println("Failed to decode response")
-		openAi.logger.PrintError("", err)
+		openAi.logger.Error(err, "Failed to decode response.")
 		return nil, err
 	}
 	content := response.Choices[0].Message.Content
@@ -125,8 +122,7 @@ func (openAi *OpenAi) Image(prompt string) (*string, error) {
 
 	buf, err := json.Marshal(data)
 	if err != nil {
-		openAi.logger.Println("Failed to create a new request")
-		openAi.logger.PrintError("", err)
+		openAi.logger.Error(err, "Failed to create a new http request.")
 		return nil, err
 	}
 	body := bytes.NewBuffer(buf)
@@ -140,8 +136,7 @@ func (openAi *OpenAi) Image(prompt string) (*string, error) {
 	resp, err := client.Do(req)
 
 	if err != nil {
-		openAi.logger.Println("Failed to create a new image from prompt %s.", prompt)
-		openAi.logger.PrintError("", err)
+		openAi.logger.Error(err, "Failed to create a new image from prompt", prompt)
 		return nil, err
 	}
 
@@ -151,8 +146,7 @@ func (openAi *OpenAi) Image(prompt string) (*string, error) {
 	err = json.NewDecoder(resp.Body).Decode(response)
 
 	if err != nil || len(response.Data) == 0 {
-		openAi.logger.Println("Failed to decode response")
-		openAi.logger.PrintError("", err)
+		openAi.logger.Error(err, "Failed to decode response.")
 		return nil, err
 	}
 
