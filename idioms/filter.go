@@ -9,6 +9,8 @@ type PageToken [2]string
 type Cursor struct {
 	Idiom     *string           `json:"idiom"`
 	CreatedAt *pgtype.Timestamp `json:"createdAt"`
+
+	IsNext bool `json:"isNext"`
 }
 
 type QueryFilter struct {
@@ -17,6 +19,8 @@ type QueryFilter struct {
 	Keyword        string `json:"keyword"`
 	Count          int    `json:"count"`
 
-	operator string
-	cursor   *Cursor
+	operator            string
+	innerOrderDirection string
+	idiom               *string
+	createdAt           *pgtype.Timestamp
 }
