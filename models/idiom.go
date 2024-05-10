@@ -10,6 +10,7 @@ type Idiom struct {
 	MeaningBrief string           `db:"meaning_brief" json:"meaningBrief"`
 	MeaningFull  string           `db:"meaning_full" json:"meaningFull"`
 	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	PublishedAt  pgtype.Timestamp `db:"published_at" json:"publishedAt"`
 	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
 	Description  pgtype.Text      `db:"description" json:"description"`
 	NumID        int64            `db:"num_id" json:"numId"`
@@ -22,6 +23,7 @@ type IdiomDB struct {
 	MeaningBrief string           `db:"meaning_brief" json:"meaningBrief"`
 	MeaningFull  string           `db:"meaning_full" json:"meaningFull"`
 	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	PublishedAt  pgtype.Timestamp `db:"published_at" json:"publishedAt"`
 	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
 	Description  pgtype.Text      `db:"description" json:"description"`
 	NumID        int64            `db:"num_id" json:"numId"`
@@ -35,6 +37,7 @@ func (res *IdiomDB) ToIdiom() *Idiom {
 		MeaningBrief: res.MeaningBrief,
 		MeaningFull:  res.MeaningFull,
 		CreatedAt:    res.CreatedAt,
+		PublishedAt:  res.PublishedAt,
 		Thumbnail:    res.Thumbnail,
 		Description:  res.Description,
 		NumID:        res.NumID,
