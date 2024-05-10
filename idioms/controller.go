@@ -3,6 +3,7 @@ package idioms
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path"
 	"strconv"
@@ -26,6 +27,7 @@ type IdiomController interface {
 	GetIdiomById(writer http.ResponseWriter, request *http.Request)
 	GetRelatedIdioms(writer http.ResponseWriter, request *http.Request)
 	GetIdioms(writer http.ResponseWriter, request *http.Request)
+	GetMainPageIdioms(writer http.ResponseWriter, request *http.Request)
 	SearchIdioms(writer http.ResponseWriter, request *http.Request)
 	GetIdiomsWithThumbnail(writer http.ResponseWriter, request *http.Request)
 	UploadThumbnail(writer http.ResponseWriter, request *http.Request)
@@ -219,11 +221,16 @@ func (controller *Controller) GetIdioms(writer http.ResponseWriter, request *htt
 		return
 	}
 
-	nextToken, err := controller.EncodeToken(idioms, filter, false)
-	previousToken, err := controller.EncodeToken(idioms, filter, true)
+	cursorToken, err := controller.EncodeToken(idioms, filter)
+	if err != nil {
+		controller.logger.Warn("failed to create cursor tokens.", err)
+		str, _ := json.Marshal(body)
+		writer.Write(str)
+		return
+	}
+	body.Cursor.Previous = cursorToken.Previous
+	body.Cursor.Next = cursorToken.Next
 	body.Idioms = idioms
-	body.Cursor.Previous = previousToken
-	body.Cursor.Next = nextToken
 	str, _ := json.Marshal(body)
 	writer.Write(str)
 }
@@ -246,11 +253,16 @@ func (controller *Controller) SearchIdioms(writer http.ResponseWriter, request *
 		return
 	}
 
-	nextToken, err := controller.EncodeToken(idioms, filter, false)
-	previousToken, err := controller.EncodeToken(idioms, filter, true)
+	cursorToken, err := controller.EncodeToken(idioms, filter)
+	if err != nil {
+		controller.logger.Warn("failed to create cursor tokens.", err)
+		str, _ := json.Marshal(body)
+		writer.Write(str)
+		return
+	}
+	body.Cursor.Previous = cursorToken.Previous
+	body.Cursor.Next = cursorToken.Next
 	body.Idioms = idioms
-	body.Cursor.Previous = previousToken
-	body.Cursor.Next = nextToken
 	str, _ := json.Marshal(body)
 	writer.Write(str)
 }
@@ -271,11 +283,34 @@ func (controller *Controller) GetIdiomsWithThumbnail(writer http.ResponseWriter,
 		return
 	}
 
-	nextToken, err := controller.EncodeToken(idioms, filter, false)
-	previousToken, err := controller.EncodeToken(idioms, filter, true)
+	cursorToken, err := controller.EncodeToken(idioms, filter)
+	if err != nil {
+		controller.logger.Warn("failed to create cursor tokens.", err)
+		str, _ := json.Marshal(body)
+		writer.Write(str)
+		return
+	}
+	body.Cursor.Previous = cursorToken.Previous
+	body.Cursor.Next = cursorToken.Next
 	body.Idioms = idioms
-	body.Cursor.Previous = previousToken
-	body.Cursor.Next = nextToken
+	str, _ := json.Marshal(body)
+	writer.Write(str)
+}
+
+func (controller *Controller) GetMainPageIdioms(writer http.ResponseWriter, request *http.Request) {
+	body := map[string]interface{}{
+		"idioms": nil,
+	}
+	writer.Header().Add("content-type", "application/json")
+
+	idioms, err := controller.idiomService.GetMainPageIdioms()
+	if err != nil {
+		str, _ := json.Marshal(body)
+		writer.Write(str)
+		return
+	}
+
+	body["idioms"] = idioms
 	str, _ := json.Marshal(body)
 	writer.Write(str)
 }
@@ -295,8 +330,7 @@ func (controller *Controller) UploadThumbnail(writer http.ResponseWriter, reques
 	writer.Header().Add("content-type", "application/json")
 
 	if err != nil {
-		controller.logger.Println("Failed to parse form")
-		controller.logger.PrintError("Error: %s", err)
+		controller.logger.Error(err, "Failed to parse form.")
 		str, _ := json.Marshal(message)
 		writer.Write(str)
 		return
@@ -311,8 +345,7 @@ func (controller *Controller) UploadThumbnail(writer http.ResponseWriter, reques
 
 	formFile, handler, err := request.FormFile("thumbnail")
 	if err != nil {
-		controller.logger.Println("Failed to get form file with id %s", idiomId)
-		controller.logger.Println("Error: %s", err)
+		controller.logger.Error(err, "Failed to get file from form", idiomId)
 		message["idiomId"] = idiomId
 		str, _ := json.Marshal(message)
 		writer.Write(str)
@@ -385,7 +418,7 @@ func (controller *Controller) UpdateThumbnailPrompt(writer http.ResponseWriter, 
 	body := new(models.IdiomThumbnailBody)
 	err := json.NewDecoder(request.Body).Decode(body)
 	if err != nil {
-		controller.logger.Println("Failed to get body with id %s", id)
+		controller.logger.Error(err, "Failed to decode JSON.", id)
 		str, _ := json.Marshal(message)
 		writer.Write(str)
 		return

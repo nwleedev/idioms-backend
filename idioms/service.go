@@ -1,6 +1,8 @@
 package idioms
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,26 +12,31 @@ import (
 	"github.com/nw.lee/idioms-backend/lib"
 	"github.com/nw.lee/idioms-backend/logger"
 	"github.com/nw.lee/idioms-backend/models"
+	"github.com/nw.lee/idioms-backend/openai"
 )
 
 type IdiomService interface {
+	GetMainPageIdioms() ([]models.Idiom, error)
 	GetIdioms(cursor *QueryFilter, hasThumbnail bool) ([]models.Idiom, error)
 	GetIdiomById(id string) (*models.Idiom, error)
 	SearchIdioms(cursor *QueryFilter, hasThumbnail bool) ([]models.Idiom, error)
 	GetRelatedIdioms(idiomId string) ([]models.Idiom, error)
 	UpdateThumbnailPrompt(idiomId string, newPrompt string) (*string, error)
 	CreateIdiomInputs(inputs []models.IdiomInput) (*int, error)
+	CreateDescription(id string) (*models.IdiomDescription, error)
 }
 
 type Service struct {
 	db     *sqlx.DB
 	logger logger.LoggerService
+	ai     openai.OpenAiInterface
 }
 
-func NewService(db *sqlx.DB, logger logger.LoggerService) *Service {
+func NewService(db *sqlx.DB, logger logger.LoggerService, ai openai.OpenAiInterface) *Service {
 	service := new(Service)
 	service.db = db
 	service.logger = logger
+	service.ai = ai
 	return service
 }
 
@@ -46,7 +53,7 @@ func (service *Service) GetIdiomById(id string) (*models.Idiom, error) {
 		ToSql()
 	err := service.db.Select(&idioms, sql, id)
 	if err != nil || len(idioms) == 0 {
-		service.logger.Println("Cannot find a idiom by %s", id)
+		service.logger.Warn("Cannot find a idiom by", id)
 		return nil, err
 	}
 
@@ -63,22 +70,45 @@ func (service *Service) GetIdiomById(id string) (*models.Idiom, error) {
 func (service *Service) GetIdioms(filter *QueryFilter, hasThumbnail bool) ([]models.Idiom, error) {
 	idiomResponses := []models.IdiomDB{}
 	idioms := []models.Idiom{}
-	query := sq.Select("*").From("idioms").OrderBy(fmt.Sprintf("%s %s", filter.OrderBy, filter.OrderDirection)).Limit(uint64(filter.Count))
-	if filter.cursor.Idiom != nil {
-		query = query.Where(fmt.Sprintf("%s %s $1", filter.OrderBy, filter.operator), *filter.cursor.Idiom)
+
+	innerQueryBuilder := sq.Select("*").From("idioms").Limit(uint64(filter.Count))
+	if filter.idiom == nil && filter.createdAt == nil {
+		innerOrderBy := fmt.Sprintf("%s %s", filter.OrderBy, filter.OrderDirection)
+		innerQueryBuilder = innerQueryBuilder.OrderBy(innerOrderBy)
+	} else {
+		innerOrderBy := fmt.Sprintf("%s %s", filter.OrderBy, filter.innerOrderDirection)
+		innerQueryBuilder = innerQueryBuilder.OrderBy(innerOrderBy)
 	}
-	if filter.cursor.CreatedAt != nil {
-		createdAt := filter.cursor.CreatedAt.Time.Format(time.RFC3339Nano)
-		query = query.Where(fmt.Sprintf("%s %s $1", filter.OrderBy, filter.operator), createdAt)
+
+	if filter.idiom != nil {
+		innerWhere := fmt.Sprintf("%s %s ?", filter.OrderBy, filter.operator)
+		innerQueryBuilder = innerQueryBuilder.Where(innerWhere, *filter.idiom)
+	}
+	if filter.createdAt != nil {
+		createdAt := filter.createdAt.Time.Format(time.RFC3339Nano)
+
+		innerWhere := fmt.Sprintf("%s %s $1", filter.OrderBy, filter.operator)
+		innerQueryBuilder = innerQueryBuilder.Where(innerWhere, createdAt)
 	}
 	if hasThumbnail {
-		query = query.Where("thumbnail IS NOT NULL")
+		innerQueryBuilder = innerQueryBuilder.Where("thumbnail IS NOT NULL")
 	}
-	sql, args, _ := query.ToSql()
-	err := service.db.Select(&idiomResponses, sql, args...)
+	innerQuery, innerArgs, err := innerQueryBuilder.PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		service.logger.Error(err, "Failed to create a query", filter)
+		return nil, err
+	}
+	join := fmt.Sprintf("(%s) as source on source.id = target.id", innerQuery)
+	orderBy := fmt.Sprintf("%s %s", filter.OrderBy, filter.OrderDirection)
+	query, _, err := sq.Select("target.*").From("idioms as target").Join(join).OrderBy(orderBy).ToSql()
 
 	if err != nil {
-		service.logger.Println("Cannot find idioms")
+		service.logger.Error(err, "Failed to join a queries", filter)
+		return nil, err
+	}
+	err = service.db.Select(&idiomResponses, query, innerArgs...)
+	if err != nil {
+		service.logger.Warn("Cannot find idioms")
 		return nil, err
 	}
 
@@ -91,32 +121,54 @@ func (service *Service) GetIdioms(filter *QueryFilter, hasThumbnail bool) ([]mod
 func (service *Service) SearchIdioms(filter *QueryFilter, hasThumbnail bool) ([]models.Idiom, error) {
 	idiomResponses := []models.IdiomDB{}
 	idioms := []models.Idiom{}
-	query := sq.Select("*").From("idioms").OrderBy(fmt.Sprintf("%s %s", filter.OrderBy, filter.OrderDirection)).Limit(uint64(filter.Count))
-	if filter.cursor.Idiom != nil {
-		query = query.Where(fmt.Sprintf("%s %s ?", filter.OrderBy, filter.operator), *filter.cursor.Idiom)
+
+	innerBuilder := sq.Select("*").From("idioms").Limit(uint64(filter.Count))
+	if filter.idiom == nil && filter.createdAt == nil {
+		innerOrderBy := fmt.Sprintf("%s %s", filter.OrderBy, filter.OrderDirection)
+		innerBuilder = innerBuilder.OrderBy(innerOrderBy)
+	} else {
+		innerOrderBy := fmt.Sprintf("%s %s", filter.OrderBy, filter.innerOrderDirection)
+		innerBuilder = innerBuilder.OrderBy(innerOrderBy)
 	}
-	if filter.cursor.CreatedAt != nil {
-		createdAt := filter.cursor.CreatedAt.Time.Format(time.RFC3339Nano)
-		query = query.Where(fmt.Sprintf("%s %s ?", filter.OrderBy, filter.operator), createdAt)
+
+	if filter.idiom != nil {
+		innerBuilder = innerBuilder.Where(fmt.Sprintf("%s %s ?", filter.OrderBy, filter.operator), *filter.idiom)
+	}
+	if filter.createdAt != nil {
+		createdAt := filter.createdAt.Time.Format(time.RFC3339Nano)
+		innerBuilder = innerBuilder.Where(fmt.Sprintf("%s %s ?", filter.OrderBy, filter.operator), createdAt)
 	}
 	if hasThumbnail {
-		query = query.Where("thumbnail IS NOT NULL")
+		innerBuilder = innerBuilder.Where("thumbnail IS NOT NULL")
 	}
 	keywords := strings.Split(filter.Keyword, " ")
 	likes := sq.Or{}
 	for _, keyword := range keywords {
+		if len(keyword) < 2 {
+			continue
+		}
 		likes = sq.Or{
 			likes,
 			sq.Expr("idiom ilike ?", fmt.Sprintf("%%%s%%", keyword)),
 		}
 	}
-	query = query.Where(likes)
-
-	sql, args, _ := query.PlaceholderFormat(sq.Dollar).ToSql()
-	err := service.db.Select(&idiomResponses, sql, args...)
+	innerBuilder = innerBuilder.Where(likes)
+	innerQuery, innerArgs, err := innerBuilder.PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		service.logger.Error(err, "Failed to create a query", filter)
+		return nil, err
+	}
+	join := fmt.Sprintf("(%s) as source on source.id = target.id", innerQuery)
+	orderBy := fmt.Sprintf("%s %s", filter.OrderBy, filter.OrderDirection)
+	query, _, err := sq.Select("target.*").From("idioms as target").Join(join).OrderBy(orderBy).ToSql()
 
 	if err != nil {
-		service.logger.PrintError("Query error", err)
+		service.logger.Error(err, "Failed to join a queries", filter)
+		return nil, err
+	}
+	err = service.db.Select(&idiomResponses, query, innerArgs...)
+	if err != nil {
+		service.logger.Warn("Cannot find idioms")
 		return nil, err
 	}
 
@@ -127,15 +179,14 @@ func (service *Service) SearchIdioms(filter *QueryFilter, hasThumbnail bool) ([]
 }
 
 func (service *Service) GetRelatedIdioms(idiomId string) ([]models.Idiom, error) {
-	ascQuery, _, _ := sq.Select("idioms.*").From("idioms as idioms").Join("idioms as target on target.id = $1").Where("idioms.created_at > target.created_at").Where("idioms.thumbnail is not null").OrderBy("idioms.created_at asc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
-	descQuery, _, _ := sq.Select("idioms.*").From("idioms as idioms").Join("idioms as target on target.id = $2").Where("idioms.created_at < target.created_at").Where("idioms.thumbnail is not null").OrderBy("idioms.created_at desc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
+	ascQuery, _, _ := sq.Select("idioms.*").From("idioms as idioms").Join("idioms as target on target.id = $1").Where("idioms.published_at > target.published_at").Where("idioms.thumbnail is not null").OrderBy("idioms.published_at asc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
+	descQuery, _, _ := sq.Select("idioms.*").From("idioms as idioms").Join("idioms as target on target.id = $2").Where("idioms.published_at < target.published_at").Where("idioms.thumbnail is not null").OrderBy("idioms.published_at desc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
 
 	// SQL without any parameters
 	fromStatement := fmt.Sprintf("((%s) union (%s)) as related", ascQuery, descQuery)
-	query, _, err := sq.Select("related.*").From(fromStatement).OrderBy("related.created_at desc").PlaceholderFormat(sq.Dollar).ToSql()
+	query, _, err := sq.Select("related.*").From(fromStatement).OrderBy("related.published_at desc").PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
-		service.logger.Println("Failed to create a query with id: %s", idiomId)
-		service.logger.PrintError("Error: %v", err)
+		service.logger.Error(err, "Failed to create a query with id", idiomId)
 		return nil, err
 	}
 
@@ -143,8 +194,7 @@ func (service *Service) GetRelatedIdioms(idiomId string) ([]models.Idiom, error)
 	idioms := []models.Idiom{}
 	err = service.db.Select(&idiomResponses, query, idiomId, idiomId)
 	if err != nil {
-		service.logger.Println("Failed to query the related idioms with id: %s", idiomId)
-		service.logger.PrintError("Error: %v", err)
+		service.logger.Error(err, "Failed to query the related idioms with id", idiomId)
 		return nil, err
 	}
 
@@ -155,16 +205,36 @@ func (service *Service) GetRelatedIdioms(idiomId string) ([]models.Idiom, error)
 	return idioms, err
 }
 
+func (service *Service) GetMainPageIdioms() ([]models.Idiom, error) {
+	query, args, err := sq.Select("*").From("idioms").Limit(24).OrderBy("published_at desc").Where("thumbnail is not null").PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		service.logger.Error(err, "Failed to create a query.")
+		return nil, err
+	}
+	idiomResponses := []models.IdiomDB{}
+	idioms := []models.Idiom{}
+	err = service.db.Select(&idiomResponses, query, args...)
+	if err != nil {
+		service.logger.Error(err, "Failed to query idioms from db.")
+		return nil, err
+	}
+
+	for _, response := range idiomResponses {
+		idioms = append(idioms, *response.ToIdiom())
+	}
+	return idioms, nil
+}
+
 func (service *Service) UpdateThumbnailPrompt(idiomId string, newPrompt string) (*string, error) {
 	query, args, err := sq.Update("idioms").Set("thumbnail_prompt", newPrompt).Where("id = ?", idiomId).PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
-		service.logger.Println("Failed to query with id %s", idiomId)
+		service.logger.Error(err, "Failed to query with id", idiomId)
 		return nil, err
 	}
 
 	_, err = service.db.Exec(query, args...)
 	if err != nil {
-		service.logger.Println("Failed to update prompt with id %s", idiomId)
+		service.logger.Error(err, "Failed to update prompt with id", idiomId)
 		return nil, err
 	}
 
@@ -179,16 +249,14 @@ func (service *Service) CreateIdiomInputs(inputs []models.IdiomInput) (*int, err
 	sql, args, err := query.Suffix("on conflict (id) do nothing").PlaceholderFormat(sq.Dollar).ToSql()
 
 	if err != nil {
-		service.logger.Println("Failed to make query with following inputs")
-		service.logger.PrintError("", err)
+		service.logger.Error(err, "Failed to create query with inputs")
 		return nil, err
 	}
 
 	result, err := service.db.Exec(sql, args...)
 
 	if err != nil {
-		service.logger.Println("Failed to create idiom inputs with following inputs")
-		service.logger.PrintError("", err)
+		service.logger.Error(err, "Failed to create idiom inputs")
 		return nil, err
 	}
 

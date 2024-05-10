@@ -34,8 +34,7 @@ func (handler *Handler) AddIdiomController(controller idioms.IdiomController) *H
 }
 
 func (handler *Handler) Run() {
-
-	handler.router.Use(middleware.Logger)
+	// handler.router.Use(middleware.Logger)
 	handler.router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://useidioms.com", "https://api.useidioms.com", "http://useidioms.com", "http://api.useidioms.com", "http://localhost:8082"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"},
@@ -43,6 +42,7 @@ func (handler *Handler) Run() {
 		AllowCredentials: true,
 		MaxAge:           600,
 	}))
+	handler.router.Use(middleware.Recoverer)
 	handler.router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			res.Header().Add("content-type", "application/json")
@@ -50,6 +50,7 @@ func (handler *Handler) Run() {
 		})
 	})
 	handler.router.Get("/idioms/admin", handler.idiomController.GetIdioms)
+	handler.router.Get("/idioms/main", handler.idiomController.GetMainPageIdioms)
 	handler.router.Get("/idioms", handler.idiomController.GetIdiomsWithThumbnail)
 	handler.router.Get("/idioms/{id}", handler.idiomController.GetIdiomById)
 	handler.router.Get("/idioms/{id}/related", handler.idiomController.GetRelatedIdioms)

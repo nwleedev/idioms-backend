@@ -60,7 +60,7 @@ func main() {
 	aiService := openai.NewOpenAi(aiKey, orgId, loggerService)
 	storageService := storage.NewService(&awsConfig, awsId, awsKey, awsRoleArn)
 
-	idiomService := idioms.NewService(conn, loggerService)
+	idiomService := idioms.NewService(conn, loggerService, aiService)
 
 	thumbnailContext := context.Background()
 
