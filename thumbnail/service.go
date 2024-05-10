@@ -48,8 +48,7 @@ func NewService(db *sqlx.DB, logger logger.LoggerService, storage storage.Storag
 func (service *Service) CreateThumbnailByURL(idiomId string, url string) (*string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		service.logger.Println("Failed to fetch image with url %s.", url)
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to fetch image with url.", url)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -69,19 +68,18 @@ func (service *Service) CreateThumbnailByURL(idiomId string, url string) (*strin
 	})
 
 	if err != nil || output == nil {
-		service.logger.Println("Failed to create a thumbnail with id %s.", idiomId)
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to create a thumbnail with id", idiomId)
 		return nil, err
 	}
-	query, args, err := sq.Update("idioms").Set("thumbnail", fileKey).Where("id = ?", idiomId).PlaceholderFormat(sq.Dollar).ToSql()
+	publishedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	query, args, err := sq.Update("idioms").Set("thumbnail", fileKey).Set("published_at", publishedAt).Where("id = ?", idiomId).PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
-		service.logger.Println("Failed to query the idiom with id %s.", idiomId)
+		service.logger.Error(err, "Failed to query the idiom with id", idiomId)
 		return nil, err
 	}
 	_, err = service.db.Exec(query, args...)
 	if err != nil {
-		service.logger.Println("Failed to update the idiom with id %s.", idiomId)
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to update the idiom with id", idiomId)
 		return nil, err
 	}
 
@@ -101,19 +99,18 @@ func (service *Service) UploadThumbnail(idiomId string, file *lib.File) (*string
 	})
 
 	if err != nil || output == nil {
-		service.logger.Println("Failed to create a thumbnail with id %s.", idiomId)
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to create a thumbnail with id.", idiomId)
 		return nil, err
 	}
-	query, args, err := sq.Update("idioms").Set("thumbnail", fileKey).Where("id = ?", idiomId).PlaceholderFormat(sq.Dollar).ToSql()
+	publishedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	query, args, err := sq.Update("idioms").Set("thumbnail", fileKey).Set("published_at", publishedAt).Where("id = ?", idiomId).PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
-		service.logger.Println("Failed to query the idiom with id %s.", idiomId)
+		service.logger.Error(err, "Failed to query the idiom with id.", idiomId)
 		return nil, err
 	}
 	_, err = service.db.Exec(query, args...)
 	if err != nil {
-		service.logger.Println("Failed to update the idiom with id %s.", idiomId)
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to update the idiom with id.", idiomId)
 		return nil, err
 	}
 
@@ -123,14 +120,13 @@ func (service *Service) UploadThumbnail(idiomId string, file *lib.File) (*string
 func (service *Service) CreateThumbnail(prompt string) (*string, error) {
 	image, err := service.ai.Image(prompt)
 	if err != nil {
-		service.logger.Println("Failed to create thumbnail with prompt %s", prompt)
+		service.logger.Error(err, "Failed to create thumbnail with prompt.", prompt)
 		return nil, err
 	}
 
 	resp, err := http.Get(*image)
 	if err != nil {
-		service.logger.Println("Failed to fetch image with url %s.", *image)
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to fetch a image with url", *image)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -149,8 +145,7 @@ func (service *Service) CreateThumbnail(prompt string) (*string, error) {
 	})
 
 	if err != nil || output == nil {
-		service.logger.Println("Failed to save a draft image.")
-		service.logger.PrintError("Error: %s", err)
+		service.logger.Error(err, "Failed to save a draft image.")
 		return nil, err
 	}
 
