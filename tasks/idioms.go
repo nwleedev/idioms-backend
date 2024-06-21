@@ -76,27 +76,35 @@ func (task *Task) CreateIdiomMeanings(interval time.Duration) {
 	}
 
 	textArgs := new(openai.TextCompletionArgs)
-	textArgs.AddMessage("system", "You are the famous English teacher.")
-	textArgs.AddMessage("system", "You are good at teaching English to countries in which people does not use English as a main language.")
+	textArgs.AddMessage("system", "You are the well telanted English instructor.")
+	textArgs.AddMessage("system", "You are good at teaching English to everyone.")
+	textArgs.AddMessage("system", "You should know how to teach English to students.")
 	textArgs.AddMessage("system", "You have every knowledges to teach English to people.")
-	textArgs.AddMessage("system", "Your missions are 4 tasks.")
-	textArgs.AddMessage("system", "1. Create a brief meaning")
-	textArgs.AddMessage("system", "2. Create a full meaning")
-	textArgs.AddMessage("system", "3. Create 10 example sentences")
-	textArgs.AddMessage("system", "4. Create a description explaining a situation with this idiom.")
-	textArgs.AddMessage("system", "Each your answer should be long and natural.")
-	textArgs.AddMessage("system", "Your answer should be much more ORIGINAL content than others on the internet.")
+	textArgs.AddMessage("system", "You should have the mindset to make English learning textbooks for high school students.")
+	textArgs.AddMessage("system", "You should act like that you are writing educational books for high school students.")
 	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
-	textArgs.AddMessage("system", "Brief meaning should be about 120 letters.")
-	textArgs.AddMessage("system", "Full meaning should satisfy about 1000 letters.")
-	textArgs.AddMessage("system", "Example sentences should be about 250 letters each sentence.")
-	textArgs.AddMessage("system", "Example sentences should be more specific.")
-	textArgs.AddMessage("system", "Example sentences should be less abstract.")
-	textArgs.AddMessage("system", "Description should be about 300 letters.")
-	textArgs.AddMessage("system", "Description should not include abstract situations.")
-	textArgs.AddMessage("system", "Description should include specific situations.")
-	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": string, \"meaningBrief\": string, \"meaningFull\": string, \"description\": string, \"examples\": [string]}")
+	textArgs.AddMessage("system", "You should use active tones instead of passive tones.")
+	textArgs.AddMessage("system", "You should use active voices instead of passive voices.")
+	textArgs.AddMessage("system", "Your content should be much more unique than plagiarism content.")
+	textArgs.AddMessage("system", "Your content should be academic.")
+	textArgs.AddMessage("system", "Your content should be extremely detailed.")
+	textArgs.AddMessage("system", "Your content should be highly readable.")
+	textArgs.AddMessage("system", "I will be very disappointed if your answer is like plagiarism.")
 
+	textArgs.AddMessage("system", "Your missions are tasks below.")
+	textArgs.AddMessage("system", "- Create a brief meaning.")
+	textArgs.AddMessage("system", "- Create a full meaning.")
+	textArgs.AddMessage("system", "- Create example sentences.")
+	textArgs.AddMessage("system", "You should limit the brief meaning to 200 words.")
+	textArgs.AddMessage("system", "You should limit the full meaning to 1000 words.")
+	textArgs.AddMessage("system", "You should create 10 example sentences.")
+	textArgs.AddMessage("system", "- You should limit each example to 500 words.")
+	textArgs.AddMessage("system", "- Each example should be like examples in Harvard dictionary.")
+	textArgs.AddMessage("system", "- Each example can be academic, casual, or businesslike.")
+	textArgs.AddMessage("system", "- Each example should be shorter than 600 letters.")
+	textArgs.AddMessage("system", "- Each example should be much detailed than plagiarism content.")
+	textArgs.AddMessage("system", "- Each example should be more practical and specific to use in real life.")
+	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": \"A Idiom\", \"meaningBrief\": \"This is a brief meaning\", \"meaningFull\": \"This is a full meaning.\", \"examples\": [\"This is example 1.\", \"This is example 2.\"]}")
 	information := map[string]string{}
 	information["idiom"] = input.Idiom
 	information["meaning"] = input.Meaning
@@ -106,8 +114,8 @@ func (task *Task) CreateIdiomMeanings(interval time.Duration) {
 
 	textArgs.AddMessage("user", fmt.Sprintf("Create me a brief meaning, a full meaning, a description and 10 example sentences with this idiom %s.", string(formatted)))
 
-	textArgs.Model = "gpt-4-turbo-preview"
-	textArgs.Temperature = 0.8
+	textArgs.Model = "gpt-4o"
+	textArgs.Temperature = 1
 
 	content, err := task.ai.TextCompletion(textArgs)
 	if err != nil {

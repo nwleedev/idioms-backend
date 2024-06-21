@@ -279,13 +279,27 @@ func (service *Service) CreateDescription(id string) (*models.IdiomDescription, 
 	}
 	idiom := idioms[0]
 	textArgs := new(openai.TextCompletionArgs)
-	textArgs.AddMessage("system", "You are the famous English teacher.")
-	textArgs.AddMessage("system", "You are good at teaching English to countries in which people does not use English as a main language.")
+	textArgs.AddMessage("system", "You are the well telanted English instructor.")
+	textArgs.AddMessage("system", "You are good at teaching English to everyone.")
+	textArgs.AddMessage("system", "You should know how to teach English to students.")
 	textArgs.AddMessage("system", "You have every knowledges to teach English to people.")
+	textArgs.AddMessage("system", "You should have the mindset to make English learning textbooks for high school students.")
+	textArgs.AddMessage("system", "You should act like that you are writing educational books for high school students.")
+	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
+	textArgs.AddMessage("system", "You should use active languages rather than passive languages.")
+	textArgs.AddMessage("system", "Your content should be much more unique than plagiarism content.")
+	textArgs.AddMessage("system", "Your content should be academic.")
+	textArgs.AddMessage("system", "Your content should be extremely detailed.")
+	textArgs.AddMessage("system", "Your content should be highly readable.")
+	textArgs.AddMessage("system", "I will be very disappointed if your answer is like plagiarism.")
+
 	textArgs.AddMessage("system", "Your missions are one task.")
 	textArgs.AddMessage("system", "- Create a description explaining a situation with this idiom.")
-	textArgs.AddMessage("system", "Your answer should be long and natural.")
-	textArgs.AddMessage("system", "Your answer should be much more ORIGINAL content than others on the internet.")
+	textArgs.AddMessage("system", "Every sentence in your answer must contain less than 20 words.")
+	textArgs.AddMessage("system", "You should use active sentences rather than passive sentences.")
+	textArgs.AddMessage("system", "Your content should be much more unique than plagiarism content.")
+	textArgs.AddMessage("system", "Your content should be academic.")
+	textArgs.AddMessage("system", "You should answer like when you are teaching English idioms to college students.")
 	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
 	textArgs.AddMessage("system", "Description should be longer than 300 letters.")
 	textArgs.AddMessage("system", "Description should be shorted than 400 letters.")
@@ -302,8 +316,8 @@ func (service *Service) CreateDescription(id string) (*models.IdiomDescription, 
 
 	textArgs.AddMessage("user", "Create me a description suitable for explaining the situation with this idiom.")
 
-	textArgs.Model = "gpt-4-turbo-preview"
-	textArgs.Temperature = 0.8
+	textArgs.Model = "gpt-4o"
+	textArgs.Temperature = 1
 
 	content, textError := service.ai.TextCompletion(textArgs)
 	if textError != nil {
@@ -332,7 +346,7 @@ func (service *Service) CreateDescription(id string) (*models.IdiomDescription, 
 	return description, nil
 }
 
-func (service *Service) CreateExamples(input models.IdiomInput) (*models.Idiom, error) {
+func (service *Service) CreateExamples(input *models.CreateExamplesInput, ctx *context.Context) (*models.Idiom, error) {
 	idioms := []models.Idiom{}
 
 	idiomQuery, args, _ := sq.Select("*").From("idioms").Where("id = ?", input.ID).Limit(1).PlaceholderFormat(sq.Dollar).ToSql()
@@ -341,48 +355,52 @@ func (service *Service) CreateExamples(input models.IdiomInput) (*models.Idiom, 
 		service.logger.Error(queryError, "Failed to query idioms with inputs")
 		return nil, queryError
 	}
-	if len(idioms) > 0 {
-		service.logger.Warn("Failed to query idioms with input")
+	if len(idioms) == 0 {
+		service.logger.Warn("Failed to query idioms with input", input)
 		return nil, errors.New("failed to query idioms with input")
 	}
 
 	textArgs := new(openai.TextCompletionArgs)
-	textArgs.AddMessage("system", "You are the famous English teacher")
-	textArgs.AddMessage("system", "You are good at teaching English to countries in which people does not use English as a main language.")
+	textArgs.AddMessage("system", "You are the well telanted English instructor.")
+	textArgs.AddMessage("system", "You are good at teaching English to everyone.")
+	textArgs.AddMessage("system", "You should know how to teach English to students.")
 	textArgs.AddMessage("system", "You have every knowledges to teach English to people.")
-	textArgs.AddMessage("system", "Your missions are four tasks.")
-	textArgs.AddMessage("system", "- Create a brief meaning")
-	textArgs.AddMessage("system", "- Create a full meaning")
-	textArgs.AddMessage("system", "- Create example sentences")
-	textArgs.AddMessage("system", "- Create a description explaining a situation with this idiom.")
-	textArgs.AddMessage("system", "Each your answer should be long and natural.")
-	textArgs.AddMessage("system", "Your answer should be much more ORIGINAL content than others on the internet.")
+	textArgs.AddMessage("system", "You should have the mindset to make English learning textbooks for high school students.")
+	textArgs.AddMessage("system", "You should act like that you are writing educational books for high school students.")
 	textArgs.AddMessage("system", "Your answer should be enough to use in real life.")
-	textArgs.AddMessage("system", "The brief meaning should be longer than 120 letters.")
-	textArgs.AddMessage("system", "The brief meaning should be shorter than 150 letters.")
-	textArgs.AddMessage("system", "The full meaning should be longer than 1000 letters.")
-	textArgs.AddMessage("system", "The full meaning should be shorter than 1100 letters.")
+	textArgs.AddMessage("system", "You should use active tones instead of passive tones.")
+	textArgs.AddMessage("system", "You should use active voices instead of passive voices.")
+	textArgs.AddMessage("system", "Your content should be much more unique than plagiarism content.")
+	textArgs.AddMessage("system", "Your content should be academic.")
+	textArgs.AddMessage("system", "Your content should be extremely detailed.")
+	textArgs.AddMessage("system", "Your content should be highly readable.")
+	textArgs.AddMessage("system", "I will be very disappointed if your answer is like plagiarism.")
+	textArgs.AddMessage("system", "You should limit your answer to 7200 tokens.")
+
+	textArgs.AddMessage("system", "Your missions are tasks below.")
+	textArgs.AddMessage("system", "- Create a brief meaning. The brief meaning is a short representation of the meaning.")
+	textArgs.AddMessage("system", "- Create a full meaning. The full meaning is a long representation of the meaning, along with an exemplary situation.")
+	textArgs.AddMessage("system", "- Create example sentences.")
+	textArgs.AddMessage("system", "You should limit the brief meaning to 100 tokens.")
+	textArgs.AddMessage("system", "You should limit the full meaning to 1000 tokens.")
 	textArgs.AddMessage("system", "You should create 10 example sentences.")
-	textArgs.AddMessage("system", "Example sentences should be about 250 letters each sentence.")
-	textArgs.AddMessage("system", "Example sentences should be more specific.")
-	textArgs.AddMessage("system", "Example sentences should be less abstract.")
-	textArgs.AddMessage("system", "Description should be longer than 300 letters.")
-	textArgs.AddMessage("system", "Description should be shorted than 400 letters.")
-	textArgs.AddMessage("system", "Description should not include abstract situations.")
-	textArgs.AddMessage("system", "Description should include specific situations.")
-	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": string, \"meaningBrief\": string, \"meaningFull\": string, \"description\": string, \"examples\": [string]}")
+	textArgs.AddMessage("system", "- You should limit each example sentence to 600 tokens.")
+	textArgs.AddMessage("system", "- Each example should be like examples in Harvard dictionary.")
+	textArgs.AddMessage("system", "- Each example can be academic, casual, or businesslike.")
+	textArgs.AddMessage("system", "- Each example should be much detailed than plagiarism content.")
+	textArgs.AddMessage("system", "- Each example should be more practical and specific to use in real life.")
+	textArgs.AddMessage("system", "Response should be json format to {\"idiom\": \"A Idiom\", \"meaningBrief\": \"This is a brief meaning\", \"meaningFull\": \"This is a full meaning.\", \"examples\": [\"This is example 1.\", \"This is example 2.\"]}")
 
 	information := map[string]string{}
 	information["idiom"] = input.Idiom
 	information["meaning"] = input.Meaning
 	formatted, _ := json.Marshal(information)
 
-	textArgs.AddMessage("assistant", fmt.Sprintf("The Idiom is here.\n%s\n", formatted))
+	textArgs.AddMessage("user", fmt.Sprintf("Create me a brief meaning, a full meaning, and 10 example sentences. with %s", formatted))
 
-	textArgs.AddMessage("user", "Create me a brief meaning, a full meaning, a description and 10 example sentences.")
-
-	textArgs.Model = "gpt-4-turbo-preview"
-	textArgs.Temperature = 0.8
+	textArgs.Model = "gpt-4o"
+	textArgs.Temperature = 1.4
+	textArgs.ResponseFormat.Type = "json_object"
 
 	content, textError := service.ai.TextCompletion(textArgs)
 	if textError != nil {
@@ -391,25 +409,49 @@ func (service *Service) CreateExamples(input models.IdiomInput) (*models.Idiom, 
 	}
 	idiom := new(models.Idiom)
 
+	*content = strings.TrimLeft(*content, "```json")
+	*content = strings.TrimRight(*content, "```")
 	jsonError := json.Unmarshal([]byte(*content), idiom)
 	if jsonError != nil {
 		service.logger.Error(jsonError, "Failed to decode JSON.")
 		return nil, jsonError
 	}
+
+	service.logger.Info("AI gives", idiom)
+
 	idiomID := lib.ToIdiomID(idiom.Idiom)
 	idiom.ID = idiomID
 
-	if !idiom.Description.Valid || idiom.Examples == nil || len(idiom.Examples) == 0 {
-		service.logger.Warn("Failed to create a description and examples by id", idiom.ID)
+	if idiom.Examples == nil || len(idiom.Examples) == 0 {
+		service.logger.Warn("Failed to create examples by id", idiom.ID)
 		return nil, errors.New("failed to create examples")
 	}
 
-	insertQuery, insertArgs, _ := sq.Insert("idioms").Columns("id", "idiom", "meaning_brief", "meaning_full", "description").Values(idiom.ID, idiom.Idiom, idiom.MeaningBrief, idiom.MeaningFull, idiom.Description).PlaceholderFormat(sq.Dollar).ToSql()
-	_, insertError := service.db.Exec(insertQuery, insertArgs...)
-	if insertError != nil {
-		service.logger.Error(insertError, "Failed to insert idiom to database", idiom)
+	tx, err := service.db.BeginTx(*ctx, nil)
+	if err != nil {
+		service.logger.Error(err, "Failed to instantiate new transaction.")
+		return nil, err
+	}
+	defer tx.Rollback()
 
-		return nil, insertError
+	updateQuery, updateArgs, _ := sq.Update("idioms").
+		Set("meaning_brief", idiom.MeaningBrief).
+		Set("meaning_full", idiom.MeaningFull).
+		Where("id = ?", idiom.ID).
+		PlaceholderFormat(sq.Dollar).
+		ToSql()
+	_, updateError := tx.Exec(updateQuery, updateArgs...)
+	if updateError != nil {
+		service.logger.Error(updateError, "Failed to update idiom to database", idiom)
+
+		return nil, updateError
+	}
+
+	deleteQuery, deleteArgs, _ := sq.Delete("idiom_examples").Where("idiom_id = ?", idiom.ID).PlaceholderFormat(sq.Dollar).ToSql()
+	_, deleteError := tx.Exec(deleteQuery, deleteArgs...)
+	if deleteError != nil {
+		service.logger.Error(deleteError, "Failed to delete idiom examples from database.", idiom)
+		return nil, deleteError
 	}
 
 	exampleQuery := sq.Insert("idiom_examples").Columns("idiom_id", "expression")
@@ -417,11 +459,59 @@ func (service *Service) CreateExamples(input models.IdiomInput) (*models.Idiom, 
 		exampleQuery = exampleQuery.Values(idiom.ID, example)
 	}
 	exampleSql, exampleArgs, _ := exampleQuery.PlaceholderFormat(sq.Dollar).ToSql()
-	_, exampleError := service.db.Exec(exampleSql, exampleArgs...)
+	_, exampleError := tx.Exec(exampleSql, exampleArgs...)
 	if exampleError != nil {
 		service.logger.Error(exampleError, "Failed to insert idiom examples", idiom)
 
 		return nil, exampleError
 	}
+	tx.Commit()
 	return idiom, nil
+}
+
+func (service *Service) UpdateExamples(input *models.UpdateExamplesInput, ctx *context.Context) (*models.UpdateExamplesInput, error) {
+	tx, err := service.db.BeginTx(*ctx, nil)
+	if err != nil {
+		service.logger.Error(err, "Failed to instantiate new transaction.")
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	updateQuery, args, err := sq.Update("idioms").
+		Set("meaning_brief", input.MeaningBrief).
+		Set("meaning_full", input.MeaningFull).
+		Where("id = ?", input.ID).
+		PlaceholderFormat(sq.Dollar).
+		ToSql()
+	if err != nil {
+		service.logger.Error(err, "Failed to create query to update meanings.", input)
+		return nil, err
+	}
+	_, err = tx.Exec(updateQuery, args...)
+	if err != nil {
+		service.logger.Error(err, "Failed to update idiom meanings.")
+		return nil, err
+	}
+
+	deleteQuery, deleteArgs, _ := sq.Delete("idiom_examples").Where("idiom_id = ?", input.ID).PlaceholderFormat(sq.Dollar).ToSql()
+	_, deleteError := tx.Exec(deleteQuery, deleteArgs...)
+	if deleteError != nil {
+		service.logger.Error(deleteError, "Failed to delete idiom examples from database.", input)
+		return nil, deleteError
+	}
+
+	exampleQuery := sq.Insert("idiom_examples").Columns("idiom_id", "expression")
+	for _, example := range input.Examples {
+		exampleQuery = exampleQuery.Values(input.ID, example)
+	}
+	exampleSql, exampleArgs, _ := exampleQuery.PlaceholderFormat(sq.Dollar).ToSql()
+	_, exampleError := tx.Exec(exampleSql, exampleArgs...)
+	if exampleError != nil {
+		service.logger.Error(exampleError, "Failed to insert idiom examples.")
+
+		return nil, exampleError
+	}
+	tx.Commit()
+	return input, nil
+
 }

@@ -43,7 +43,7 @@ func (service *Service) Warn(message string, values ...any) {
 	createdAt := now.Format(time.DateTime)
 	title := "WARN"
 	warnMessage := fmt.Sprintln(values...)
-	warnBody := fmt.Sprintf("\n---\nMessage: %s %s---", message, warnMessage)
+	warnBody := fmt.Sprintf("---\nMessage: %s %s---", message, warnMessage)
 
 	log.Printf("%s %s %s %s\n", title, createdAt, callerName, warnBody)
 }

@@ -5,29 +5,31 @@ import (
 )
 
 type Idiom struct {
-	ID           string           `db:"id" json:"id"`
-	Idiom        string           `db:"idiom" json:"idiom"`
-	MeaningBrief string           `db:"meaning_brief" json:"meaningBrief"`
-	MeaningFull  string           `db:"meaning_full" json:"meaningFull"`
-	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	PublishedAt  pgtype.Timestamp `db:"published_at" json:"publishedAt"`
-	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
-	Description  pgtype.Text      `db:"description" json:"description"`
-	NumID        int64            `db:"num_id" json:"numId"`
-	Examples     []string         `json:"examples"`
+	ID           string               `db:"id" json:"id"`
+	Idiom        string               `db:"idiom" json:"idiom"`
+	MeaningBrief string               `db:"meaning_brief" json:"meaningBrief"`
+	MeaningFull  string               `db:"meaning_full" json:"meaningFull"`
+	CreatedAt    pgtype.Timestamp     `db:"created_at" json:"createdAt"`
+	PublishedAt  pgtype.Timestamp     `db:"published_at" json:"publishedAt"`
+	Thumbnail    pgtype.Text          `db:"thumbnail" json:"thumbnail"`
+	Thumbnails   pgtype.Array[string] `db:"thumbnails" json:"thumbnails"`
+	Description  pgtype.Text          `db:"description" json:"description"`
+	NumID        int64                `db:"num_id" json:"numId"`
+	Examples     []string             `json:"examples"`
 }
 
 type IdiomDB struct {
-	ID           string           `db:"id" json:"id"`
-	Idiom        string           `db:"idiom" json:"idiom"`
-	MeaningBrief string           `db:"meaning_brief" json:"meaningBrief"`
-	MeaningFull  string           `db:"meaning_full" json:"meaningFull"`
-	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	PublishedAt  pgtype.Timestamp `db:"published_at" json:"publishedAt"`
-	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
-	Description  pgtype.Text      `db:"description" json:"description"`
-	NumID        int64            `db:"num_id" json:"numId"`
-	Expression   string           `json:"expression" db:"expression"`
+	ID           string               `db:"id" json:"id"`
+	Idiom        string               `db:"idiom" json:"idiom"`
+	MeaningBrief string               `db:"meaning_brief" json:"meaningBrief"`
+	MeaningFull  string               `db:"meaning_full" json:"meaningFull"`
+	CreatedAt    pgtype.Timestamp     `db:"created_at" json:"createdAt"`
+	PublishedAt  pgtype.Timestamp     `db:"published_at" json:"publishedAt"`
+	Thumbnail    pgtype.Text          `db:"thumbnail" json:"thumbnail"`
+	Thumbnails   pgtype.Array[string] `db:"thumbnails" json:"thumbnails"`
+	Description  pgtype.Text          `db:"description" json:"description"`
+	NumID        int64                `db:"num_id" json:"numId"`
+	Expression   string               `json:"expression" db:"expression"`
 }
 
 func (res *IdiomDB) ToIdiom() *Idiom {
@@ -39,6 +41,7 @@ func (res *IdiomDB) ToIdiom() *Idiom {
 		CreatedAt:    res.CreatedAt,
 		PublishedAt:  res.PublishedAt,
 		Thumbnail:    res.Thumbnail,
+		Thumbnails:   res.Thumbnails,
 		Description:  res.Description,
 		NumID:        res.NumID,
 		Examples:     []string{},
@@ -65,6 +68,8 @@ type IdiomInput struct {
 	Idiom     string           `json:"idiom" db:"idiom"`
 	Meaning   string           `json:"meaning" db:"meaning"`
 	CreatedAt pgtype.Timestamp `json:"createdAt" db:"created_at"`
+
+	IdiomCreatedAt pgtype.Timestamp `json:"idiomCreatedAt" db:"idiom_created_at"`
 }
 
 type IdiomImageInput struct {
@@ -79,4 +84,18 @@ type IdiomPrompt struct {
 type IdiomDescription struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
+}
+
+type CreateExamplesInput struct {
+	ID      string `json:"id"`
+	Idiom   string `json:"idiom"`
+	Meaning string `json:"meaning"`
+}
+
+type UpdateExamplesInput struct {
+	ID           string   `json:"id"`
+	Idiom        string   `json:"idiom"`
+	MeaningBrief string   `json:"meaningBrief"`
+	MeaningFull  string   `json:"meaningFull"`
+	Examples     []string `json:"examples"`
 }

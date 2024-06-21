@@ -63,6 +63,9 @@ func (handler *Handler) Run() {
 		handler.router.Post("/idioms/thumbnail/url", handler.idiomController.CreateThumbnailByURL)
 		handler.router.Post("/idioms/{id}/thumbnail", handler.idiomController.UpdateThumbnailPrompt)
 		handler.router.Put("/idioms/{id}/description", handler.idiomController.CreateDescription)
+		handler.router.Post("/idioms/{id}/examples", handler.idiomController.CreateExamples)
+		handler.router.Put("/idioms/{id}/examples", handler.idiomController.UpdateExamples)
+
 	}
 }
 

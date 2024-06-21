@@ -478,3 +478,62 @@ func (controller *Controller) CreateThumbnail(writer http.ResponseWriter, reques
 	str, _ := json.Marshal(message)
 	writer.Write(str)
 }
+
+func (controller *Controller) CreateExamples(writer http.ResponseWriter, request *http.Request) {
+	message := map[string]interface{}{
+		"idiom": nil,
+	}
+	input := new(models.CreateExamplesInput)
+	err := json.NewDecoder(request.Body).Decode(&input)
+	if err != nil {
+		controller.logger.Error(err, "Failed to decode JSON.", input)
+		str, _ := json.Marshal(message)
+		writer.Write(str)
+		return
+	}
+	reqContext := request.Context()
+	newIdiom, err := controller.idiomService.CreateExamples(input, &reqContext)
+	if err != nil {
+		str, _ := json.Marshal(message)
+		writer.Write(str)
+		return
+	}
+	message["idiom"] = newIdiom
+	str, _ := json.Marshal(message)
+	writer.Write(str)
+}
+
+func (controller *Controller) UpdateExamples(writer http.ResponseWriter, request *http.Request) {
+	message := map[string]interface{}{
+		"status":  "ok",
+		"message": nil,
+	}
+	form := new(models.UpdateExamplesInput)
+
+	err := json.NewDecoder(request.Body).Decode(form)
+	if err != nil {
+		controller.logger.Error(err, "Failed to decode JSON.")
+		message["status"] = "failed"
+		message["message"] = "Failed to decode JSON."
+		str, _ := json.Marshal(message)
+		writer.Write(str)
+		return
+	}
+
+	reqContext := request.Context()
+	_, err = controller.idiomService.UpdateExamples(form, &reqContext)
+
+	if err != nil {
+		controller.logger.Error(err, "Failed to update the idiom.")
+		message["status"] = "failed"
+		message["message"] = "Failed to update the idiom."
+		str, _ := json.Marshal(message)
+		writer.Write(str)
+		return
+	}
+
+	message["form"] = form
+	str, _ := json.Marshal(message)
+	writer.Write(str)
+	return
+}

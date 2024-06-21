@@ -26,10 +26,13 @@ type TextCompletionMessage struct {
 }
 
 type TextCompletionArgs struct {
-	Model       string                  `json:"model"`
-	Temperature float64                 `json:"temperature"`
-	MaxTokens   int                     `json:"max_tokens"`
-	Messages    []TextCompletionMessage `json:"messages"`
+	Model          string                  `json:"model"`
+	Temperature    float64                 `json:"temperature"`
+	MaxTokens      int                     `json:"max_tokens"`
+	Messages       []TextCompletionMessage `json:"messages"`
+	ResponseFormat struct {
+		Type string `json:"type"`
+	} `json:"response_format"`
 }
 
 type TextCompletionResponse struct {
@@ -146,7 +149,7 @@ func (openAi *OpenAi) Image(prompt string) (*string, error) {
 	err = json.NewDecoder(resp.Body).Decode(response)
 
 	if err != nil || len(response.Data) == 0 {
-		openAi.logger.Error(err, "Failed to decode response.")
+		openAi.logger.Error(err, "Failed to decode response.", response)
 		return nil, err
 	}
 
