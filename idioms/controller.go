@@ -36,6 +36,7 @@ type IdiomController interface {
 	UpdateThumbnailPrompt(writer http.ResponseWriter, request *http.Request)
 	CreateIdiomInputs(writer http.ResponseWriter, request *http.Request)
 	CreateDescription(writer http.ResponseWriter, request *http.Request)
+	CreateExamples(writer http.ResponseWriter, request *http.Request)
 	UpdateExamples(writer http.ResponseWriter, request *http.Request)
 }
 
@@ -50,7 +51,10 @@ func NewController(idiomService IdiomService, thumbnailService thumbnail.Thumbna
 
 func (contoller *Controller) EncodeToken(idioms []models.Idiom, filter *QueryFilter) (*models.CursorToken, error) {
 	if len(idioms) < 1 {
-		return nil, errors.New("failed to query idioms")
+		return &models.CursorToken{
+			Previous: "",
+			Next:     "",
+		}, nil
 	}
 	fromIdiom := idioms[0]
 	toIdiom := idioms[len(idioms)-1]

@@ -1,6 +1,7 @@
 package idioms
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,8 +23,9 @@ type IdiomService interface {
 	SearchIdioms(cursor *QueryFilter, hasThumbnail bool) ([]models.Idiom, error)
 	GetRelatedIdioms(idiomId string) ([]models.Idiom, error)
 	UpdateThumbnailPrompt(idiomId string, newPrompt string) (*string, error)
-	CreateIdiomInputs(inputs []models.IdiomInput) (*int, error)
 	CreateDescription(id string) (*models.IdiomDescription, error)
+	CreateExamples(input *models.CreateExamplesInput, ctx *context.Context) (*models.Idiom, error)
+	UpdateExamples(form *models.UpdateExamplesInput, ctx *context.Context) (*models.UpdateExamplesInput, error)
 }
 
 type Service struct {
