@@ -22,6 +22,7 @@ type IdiomService interface {
 	GetIdiomById(id string) (*models.Idiom, error)
 	SearchIdioms(cursor *QueryFilter, hasThumbnail bool) ([]models.Idiom, error)
 	GetRelatedIdioms(idiomId string) ([]models.Idiom, error)
+	CreateIdiomInputs(inputs []models.IdiomInput) (*int, error)
 	UpdateThumbnailPrompt(idiomId string, newPrompt string) (*string, error)
 	CreateDescription(id string) (*models.IdiomDescription, error)
 	CreateExamples(input *models.CreateExamplesInput, ctx *context.Context) (*models.Idiom, error)
