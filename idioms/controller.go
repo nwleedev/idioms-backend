@@ -36,6 +36,7 @@ type IdiomController interface {
 	UpdateThumbnailPrompt(writer http.ResponseWriter, request *http.Request)
 	CreateIdiomInputs(writer http.ResponseWriter, request *http.Request)
 	CreateDescription(writer http.ResponseWriter, request *http.Request)
+	UpdateExamples(writer http.ResponseWriter, request *http.Request)
 }
 
 func NewController(idiomService IdiomService, thumbnailService thumbnail.ThumbnailService, logger logger.LoggerService) *Controller {
