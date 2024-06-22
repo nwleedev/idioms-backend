@@ -182,8 +182,8 @@ func (service *Service) SearchIdioms(filter *QueryFilter, hasThumbnail bool) ([]
 }
 
 func (service *Service) GetRelatedIdioms(idiomId string) ([]models.Idiom, error) {
-	ascQuery, _, _ := sq.Select("idioms.*").From("idioms as idioms").Join("idioms as target on target.id = $1").Where("idioms.published_at > target.published_at").Where("idioms.thumbnail is not null").OrderBy("idioms.published_at asc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
-	descQuery, _, _ := sq.Select("idioms.*").From("idioms as idioms").Join("idioms as target on target.id = $2").Where("idioms.published_at < target.published_at").Where("idioms.thumbnail is not null").OrderBy("idioms.published_at desc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
+	ascQuery, _, _ := sq.Select("idioms.id, idioms.idiom, idioms.meaning_brief, idioms.meaning_full, idioms.thumbnail, idioms.description, idioms.published_at, idioms.created_at").From("idioms as idioms").Join("idioms as target on target.id = $1").Where("idioms.published_at > target.published_at").Where("idioms.thumbnail is not null").OrderBy("idioms.published_at asc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
+	descQuery, _, _ := sq.Select("idioms.id, idioms.idiom, idioms.meaning_brief, idioms.meaning_full, idioms.thumbnail, idioms.description, idioms.published_at, idioms.created_at").From("idioms as idioms").Join("idioms as target on target.id = $2").Where("idioms.published_at < target.published_at").Where("idioms.thumbnail is not null").OrderBy("idioms.published_at desc").Limit(4).PlaceholderFormat(sq.Dollar).ToSql()
 
 	// SQL without any parameters
 	fromStatement := fmt.Sprintf("((%s) union (%s)) as related", ascQuery, descQuery)
