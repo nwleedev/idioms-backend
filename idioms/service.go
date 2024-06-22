@@ -111,7 +111,7 @@ func (service *Service) GetIdioms(filter *QueryFilter, hasThumbnail bool) ([]mod
 	}
 	err = service.db.Select(&idiomResponses, query, innerArgs...)
 	if err != nil {
-		service.logger.Warn("Cannot find idioms")
+		service.logger.Error(err, "Cannot find idioms")
 		return nil, err
 	}
 

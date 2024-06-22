@@ -12,7 +12,7 @@ type Idiom struct {
 	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
 	PublishedAt  pgtype.Timestamp `db:"published_at" json:"publishedAt"`
 	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
-	Thumbnails   []string         `db:"thumbnails" json:"thumbnails"`
+	Thumbnails   TextArray        `db:"thumbnails" json:"thumbnails"`
 	Description  pgtype.Text      `db:"description" json:"description"`
 	NumID        int64            `db:"num_id" json:"numId"`
 	Examples     []string         `json:"examples"`
@@ -26,7 +26,7 @@ type IdiomDB struct {
 	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
 	PublishedAt  pgtype.Timestamp `db:"published_at" json:"publishedAt"`
 	Thumbnail    pgtype.Text      `db:"thumbnail" json:"thumbnail"`
-	Thumbnails   []string         `db:"thumbnails" json:"thumbnails"`
+	Thumbnails   TextArray        `db:"thumbnails" json:"thumbnails"`
 	Description  pgtype.Text      `db:"description" json:"description"`
 	NumID        int64            `db:"num_id" json:"numId"`
 	Expression   string           `json:"expression" db:"expression"`
